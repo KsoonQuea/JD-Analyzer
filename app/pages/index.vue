@@ -1,12 +1,18 @@
 <script setup lang="ts">
 const jobDescription = ref('')
 const skills = ref('')
-const { result, loading, error, analyze } = useAnalyzer()
+const resumeText = ref('')
 
-const canSubmit = computed(() => jobDescription.value.trim() && skills.value.trim() && !loading.value)
+const { result, isLoading, error, analyze } = useAnalyzer()
+
+const canSubmit = computed(() =>
+  jobDescription.value.trim() &&
+  (skills.value.trim() || resumeText.value.trim()) &&
+  !isLoading.value
+)
 
 async function handleSubmit() {
-  await analyze(jobDescription.value, skills.value)
+  await analyze(jobDescription.value, skills.value, resumeText.value || undefined)
 }
 </script>
 
@@ -29,13 +35,17 @@ async function handleSubmit() {
         <!-- Input panel -->
         <div class="flex flex-col gap-5">
           <JDInput v-model="jobDescription" />
+          <ResumeUpload
+            @extracted="(text) => resumeText = text"
+            @cleared="resumeText = ''"
+          />
           <SkillsInput v-model="skills" />
           <button
             :disabled="!canSubmit"
             class="w-full py-3 px-6 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             @click="handleSubmit"
           >
-            {{ loading ? 'Analyzing…' : 'Analyze Match' }}
+            {{ isLoading ? 'Analyzing…' : 'Analyze Match' }}
           </button>
           <p v-if="error" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             {{ error }}
@@ -46,7 +56,7 @@ async function handleSubmit() {
         <div>
           <AnalysisResult v-if="result" :result="result" />
 
-          <div v-else-if="loading" class="flex flex-col items-center justify-center h-72 gap-4">
+          <div v-else-if="isLoading" class="flex flex-col items-center justify-center h-72 gap-4">
             <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
             <p class="text-sm text-slate-500">Analyzing your profile…</p>
           </div>
@@ -56,7 +66,8 @@ async function handleSubmit() {
               📋
             </div>
             <p class="text-slate-400 text-sm leading-relaxed">
-              Paste a job description and your skills,<br>then click <strong class="text-slate-600">Analyze Match</strong>.
+              Paste a job description, upload your resume or list your skills,<br>
+              then click <strong class="text-slate-600">Analyze Match</strong>.
             </p>
           </div>
         </div>
