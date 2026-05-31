@@ -2,31 +2,30 @@ import type { AnalysisResult } from '~/types/analysis'
 
 export function useAnalyzer() {
   const result = ref<AnalysisResult | null>(null)
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  const isLoading = ref(false)
+  const errorMessage = ref<string | null>(null)
 
-  async function analyze(jobDescription: string, skills: string) {
-    loading.value = true
-    error.value = null
+  async function analyze(jobDescription: string, skills: string, resumeText?: string) {
+    isLoading.value = true
+    errorMessage.value = null
     result.value = null
 
     try {
       result.value = await $fetch<AnalysisResult>('/api/analyze', {
         method: 'POST',
-        body: { jobDescription, skills }
+        body: { jobDescription, skills, resumeText }
       })
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Analysis failed. Please try again.'
-      error.value = msg
+    } catch (error: unknown) {
+      errorMessage.value = error instanceof Error ? error.message : 'Analysis failed. Please try again.'
     } finally {
-      loading.value = false
+      isLoading.value = false
     }
   }
 
   function reset() {
     result.value = null
-    error.value = null
+    errorMessage.value = null
   }
 
-  return { result, loading, error, analyze, reset }
+  return { result, isLoading, error: errorMessage, analyze, reset }
 }

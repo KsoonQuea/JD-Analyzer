@@ -1,15 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-const SYSTEM_PROMPT = `You are an expert career advisor and technical recruiter. Analyze job descriptions against candidate skills and provide detailed, actionable match assessments. Always respond with valid JSON only — no markdown fences, no commentary, just the raw JSON object.`
+const SYSTEM_PROMPT = `You are an expert career advisor and technical recruiter. Analyze job descriptions against candidate profiles and provide detailed, actionable match assessments. Always respond with valid JSON only — no markdown fences, no commentary, just the raw JSON object.`
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
-  const { jobDescription, skills } = body
+  const { jobDescription, skills, resumeText } = body
 
-  if (!jobDescription?.trim() || !skills?.trim()) {
-    throw createError({ statusCode: 400, message: 'Job description and skills are required.' })
+  if (!jobDescription?.trim()) {
+    throw createError({ statusCode: 400, message: 'Job description is required.' })
   }
+  if (!skills?.trim() && !resumeText?.trim()) {
+    throw createError({ statusCode: 400, message: 'Either skills or a resume is required.' })
+  }
+
+  const candidateSection = resumeText?.trim()
+    ? [
+        'Candidate Resume:',
+        resumeText.trim(),
+        ...(skills?.trim() ? ['\nAdditional Skills:', skills.trim()] : [])
+      ].join('\n')
+    : `Candidate Skills:\n${skills.trim()}`
 
   const client = new Anthropic({ apiKey: config.anthropicApiKey as string })
 
@@ -26,13 +37,12 @@ export default defineEventHandler(async (event) => {
     messages: [
       {
         role: 'user',
-        content: `Analyze this job description against the candidate's skills.
+        content: `Analyze this job description against the candidate's profile.
 
 Job Description:
-${jobDescription}
+${jobDescription.trim()}
 
-Candidate's Skills:
-${skills}
+${candidateSection}
 
 Return ONLY a raw JSON object (no markdown) with this exact structure:
 {
@@ -53,7 +63,7 @@ Return ONLY a raw JSON object (no markdown) with this exact structure:
   })
 
   const content = response.content[0]
-  if (content.type !== 'text') {
+  if (!content || content.type !== 'text') {
     throw createError({ statusCode: 500, message: 'Unexpected API response type.' })
   }
 
